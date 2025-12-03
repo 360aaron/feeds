@@ -1,0 +1,41 @@
+{
+  "type": "record",
+  "name": "NormalizedDaySparseOutbox",
+  "namespace": "your.company.weather",
+  "fields": [
+    { "name": "id", "type": "long" },
+
+    { "name": "source_unique_id",   "type": ["null", "string"], "default": null },
+    { "name": "created_on",         "type": ["null", "string"], "default": null },
+
+    { "name": "published",          "type": ["null", "boolean"], "default": null },
+    { "name": "retries",            "type": ["null", "int"],     "default": null },
+
+    { "name": "maxtemp_c",          "type": ["null", "double"],  "default": null },
+    { "name": "maxtemp_f",          "type": ["null", "double"],  "default": null },
+    { "name": "mintemp_c",          "type": ["null", "double"],  "default": null },
+    { "name": "mintemp_f",          "type": ["null", "double"],  "default": null },
+    { "name": "avgtemp_c",          "type": ["null", "double"],  "default": null },
+    { "name": "avgtemp_f",          "type": ["null", "double"],  "default": null },
+
+    { "name": "maxwind_mph",        "type": ["null", "double"],  "default": null },
+    { "name": "maxwind_kph",        "type": ["null", "double"],  "default": null },
+    { "name": "totalprecip_mm",     "type": ["null", "double"],  "default": null },
+    { "name": "totalprecip_in",     "type": ["null", "double"],  "default": null },
+    { "name": "totalsnow_cm",       "type": ["null", "double"],  "default": null },
+    { "name": "avgvis_km",          "type": ["null", "double"],  "default": null },
+    { "name": "avgvis_miles",       "type": ["null", "double"],  "default": null },
+    { "name": "avghumidity",        "type": ["null", "double"],  "default": null },
+
+    { "name": "daily_will_it_rain", "type": ["null", "int"],     "default": null },
+    { "name": "daily_chance_of_rain","type":["null", "int"],     "default": null },
+    { "name": "daily_will_it_snow", "type": ["null", "int"],     "default": null },
+    { "name": "daily_chance_of_snow","type":["null", "int"],     "default": null },
+
+    { "name": "condition_text",     "type": ["null", "string"],  "default": null },
+    { "name": "condition_icon",     "type": ["null", "string"],  "default": null },
+    { "name": "condition_code",     "type": ["null", "int"],     "default": null },
+
+    { "name": "uv",                 "type": ["null", "double"],  "default": null }
+  ]
+}
