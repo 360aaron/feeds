@@ -5,6 +5,8 @@
     1. Archive current version of the record
     2. Outbox changes for downstream systems
 
+- TODO: Add outbox_archive(s)
+
 */
 -- DROPS
 drop table if exists staging_normalized_days;
@@ -25,8 +27,11 @@ drop table if exists normalized_hours_sparse_outbox;
 
 -- Staging
 create table if not exists staging_normalized_days (
-    source_unique_id text primary key,
+    --
+    id serial,
+    source_unique_id text,
     created_on timestamp,
+    --
     date date,
     date_epoch int,
     maxtemp_c int,
@@ -50,25 +55,29 @@ create table if not exists staging_normalized_days (
     condition_text text,
     condition_icon text,
     condition_code int,
-    uv int,
-    id serial
+    uv int
 );
 
 create table if not exists staging_normalized_astrology (
-    source_unique_id text primary key,
+    --
+    id serial,
+    parent_id text,
     created_on timestamp,
+    --
     sunrise text,
     sunset text,
     moonrise text,
     moonset text,
     moon_phase text,
-    moon_illumination int,
-    id serial
+    moon_illumination int
 );
 
 create table if not exists staging_normalized_hours (
-    source_unique_id text primary key,
+    --
+    id serial,
+    parent_id text,
     created_on timestamp,
+    --
     time_epoch int,
     time text,
     temp_c int,
@@ -104,15 +113,17 @@ create table if not exists staging_normalized_hours (
     vis_miles int,
     gust_mph int,
     gust_kph int,
-    uv int,
-    id serial
+    uv int
 );
 
 -- Live
 create table if not exists normalized_days (
+    --
     source_unique_id text primary key,
+    id serial,
     created_on timestamp,
     archived_on timestamp,
+    --
     date date,
     date_epoch int,
     maxtemp_c int,
@@ -136,27 +147,31 @@ create table if not exists normalized_days (
     condition_text text,
     condition_icon text,
     condition_code int,
-    uv int,
-    id serial
+    uv int
 );
 
 create table if not exists normalized_astrology (
-    source_unique_id text primary key,
+    --
+    id serial primary key,
+    parent_id text,
     created_on timestamp,
     archived_on timestamp,
+    --
     sunrise text,
     sunset text,
     moonrise text,
     moonset text,
     moon_phase text,
-    moon_illumination int,
-    id serial
+    moon_illumination int
 );
 
 create table if not exists normalized_hours (
-    source_unique_id text primary key,
+    --
+    id serial primary key,  
+    parent_id text,
     created_on timestamp,
     archived_on timestamp,
+    --
     time_epoch int,
     time text,
     temp_c int,
@@ -192,15 +207,17 @@ create table if not exists normalized_hours (
     vis_miles int,
     gust_mph int,
     gust_kph int,
-    uv int,
-    id serial
+    uv int
 );
 
 -- Archive
 create table if not exists normalized_days_archive (
-    source_unique_id text primary key,
+    --
+    id serial primary key,
+    source_unique_id text,
     created_on timestamp,
     archived_on timestamp,
+    --
     date date,
     date_epoch int,
     maxtemp_c int,
@@ -224,27 +241,31 @@ create table if not exists normalized_days_archive (
     condition_text text,
     condition_icon text,
     condition_code int,
-    uv int,
-    id serial
+    uv int
 );
 
 create table if not exists normalized_astrology_archive (
-    source_unique_id text primary key,
+    --
+    id serial primary key,
+    parent_id text,
     created_on timestamp,
+    --
     archived_on timestamp,
     sunrise text,
     sunset text,
     moonrise text,
     moonset text,
     moon_phase text,
-    moon_illumination int,
-    id serial
+    moon_illumination int
 );
 
 create table if not exists normalized_hours_archive (
-    source_unique_id text primary key,
+    --
+    id serial primary key,
+    parent_id text,
     created_on timestamp,
     archived_on timestamp,
+    --
     time_epoch int,
     time text,
     temp_c int,
@@ -280,16 +301,18 @@ create table if not exists normalized_hours_archive (
     vis_miles int,
     gust_mph int,
     gust_kph int,
-    uv int,
-    id serial
+    uv int
 );
 
 -- Outboxes
 create table if not exists normalized_days_sparse_outbox (
+    --
+    id serial primary key,
     source_unique_id text,
     created_on timestamp,
     processed boolean default false,
     retries int default 0,
+    --
     date date,
     date_epoch int,
     maxtemp_c int,
@@ -313,29 +336,33 @@ create table if not exists normalized_days_sparse_outbox (
     condition_text text,
     condition_icon text,
     condition_code int,
-    uv int,
-    id serial primary key
+    uv int
 );
 
 create table if not exists normalized_astrology_sparse_outbox (
-    source_unique_id text,
+    --    
+    id serial primary key,
+    parent_id text,
     created_on timestamp,
     processed boolean default false,
     retries int default 0,
+    --    
     sunrise text,
     sunset text,
     moonrise text,
     moonset text,
     moon_phase text,
-    moon_illumination int,
-    id serial primary key
+    moon_illumination int
 );
 
 create table if not exists normalized_hours_sparse_outbox (
-    source_unique_id text,
+    --
+    id serial primary key,
+    parent_id text,
     created_on timestamp,
     processed boolean default false,
     retries int default 0,
+    --
     time_epoch int,
     time text,
     temp_c int,
@@ -371,6 +398,5 @@ create table if not exists normalized_hours_sparse_outbox (
     vis_miles int,
     gust_mph int,
     gust_kph int,
-    uv int,
-    id serial primary key
+    uv int
 );
