@@ -2,17 +2,8 @@
 
 It would be reasonable to:
 
-**Validate**
-
-1. Validate we are receiving headers/keys we expect.
-2. Track when we receive unexpected, new or changed headers/keys.
-3. Validate we are receiving the data types we are expected.
-4. Track when we receive unexpected, new or changed data types.
-
-**Normalize**
-
-5. Split data onto business relevant models
-6. Diff changes for publishing to avoid rebroacasting whole records
+1. Split data onto business relevant models
+2. Diff changes for publishing to avoid rebroacasting whole records
 
 ### Proposed pattern
 

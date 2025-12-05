@@ -1,3 +1,8 @@
+-- DROPS
+drop table if exists staging_sftp_records;
+drop table if exists sftp_records;
+drop table if exists sftp_records_archive;
+
 -- create database testdb;
 
 -- TODO:
@@ -60,8 +65,3 @@ create trigger trigger_sftp_records_archive_on_update
 before update on sftp_records
 for each row
 execute function archive_sftp_records_on_update();
-
--- DROPS
-drop table if exists staging_sftp_records;
-drop table if exists sftp_records;
-drop table if exists sftp_records_archive;

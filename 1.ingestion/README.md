@@ -8,23 +8,17 @@ We copy data from 4 types of sources:
 
 ### Proposed pattern
 
-This requires 6 elements / ~200 LOC + tests:
-1. 1 serverless job running on a schedule, 
-2. 3 tables:
+1. Compute:
+    - Authenticates / Connects
+    - Copies data
+    - Contracts:
+        1. Schema validation: validate we are receiving headers/keys we expect.
+        2. Schema drift: track when we receive unexpected, new or changed headers/keys.
+        3. Type validation: validate we are receiving the data types we are expected.
+        4. Type drift: track when we receive unexpected, new or changed data types.
+2. Storage:
     i. Staging
     ii. Live records
     iii. Archived records
-3. 1 function
-4. 1 trigger
-
-Minimally viable with ~200 LOC:
-```
---------------------------------------------------------------------
-Language   Files        Lines        Blank      Comment      Code
---------------------------------------------------------------------
-Python     1           72            4            5           63
- SQL       1           67            7            6           54
---------------------------------------------------------------------
-Total      2          139           11           11          117
---------------------------------------------------------------------
-```
+    iv. An archiving function
+    v. A trigger for the archiving function

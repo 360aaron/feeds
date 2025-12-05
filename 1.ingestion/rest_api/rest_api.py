@@ -16,6 +16,7 @@ ranges = [
     "2025-10-01&end_dt=2025-11-01",
     "2025-11-01&end_dt=2025-12-01"
 ]
+
 def ingest_rest_api_data():
     try:
         with psycopg2.connect(db_conn_str) as conn:

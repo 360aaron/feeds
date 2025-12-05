@@ -1,3 +1,8 @@
+-- DROPS
+drop table if exists staging_soapapi_records;
+drop table if exists soapapi_records;
+drop table if exists soapapi_records_archive;
+
 -- create database testdb;
 
 -- TODO:
@@ -60,8 +65,3 @@ create trigger trigger_soapapi_records_archive_on_update
 before update on soapapi_records
 for each row
 execute function archive_soapapi_records_on_update();
-
--- DROPS
-drop table if exists staging_soapapi_records;
-drop table if exists soapapi_records;
-drop table if exists soapapi_records_archive;

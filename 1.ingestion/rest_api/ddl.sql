@@ -1,3 +1,8 @@
+-- DROPS
+drop table if exists staging_restapi_records;
+drop table if exists restapi_records;
+drop table if exists restapi_records_archive;
+
 -- create database testdb;
 
 -- TODO:
@@ -60,8 +65,3 @@ create trigger trigger_restapi_records_archive_on_update
 before update on restapi_records
 for each row
 execute function archive_restapi_records_on_update();
-
--- DROPS
-drop table if exists staging_restapi_records;
-drop table if exists restapi_records;
-drop table if exists restapi_records_archive;
