@@ -20,15 +20,16 @@ def sha256_hex_from_json(obj) -> str:
     s = json.dumps(obj, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-def insert_day(source_unique_id, day):
+def insert_day(source_unique_id, day, day_astro_count, day_hour_count):
     day_hash = sha256_hex_from_json(day)
     with psycopg2.connect(db_conn_str) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO staging_normalized_days (
-                    record_hash, source_unique_id, date, date_epoch,
-                    maxtemp_c, maxtemp_f, mintemp_c, mintemp_f,
+                INSERT INTO normalized_days (
+                    record_hash, source_unique_id,
+                    children_astro_record_count, children_hour_record_count,
+                    date, date_epoch, maxtemp_c, maxtemp_f, mintemp_c, mintemp_f,
                     avgtemp_c, avgtemp_f, maxwind_mph, maxwind_kph,
                     totalprecip_mm, totalprecip_in,
                     totalsnow_cm, avgvis_km, avgvis_miles,
@@ -37,13 +38,15 @@ def insert_day(source_unique_id, day):
                     daily_chance_of_snow, condition_text, 
                     condition_icon, condition_code, uv
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """,
                 (
                     day_hash,
                     source_unique_id,
+                    day_astro_count,
+                    day_hour_count,
                     raw_record["date"],
                     raw_record["date_epoch"],
                     int(day["maxtemp_c"]),
@@ -78,7 +81,7 @@ def insert_astro(source_unique_id, astro):
         with conn.cursor() as cur:
             cur.execute(
             """
-                INSERT INTO staging_normalized_astrology (
+                INSERT INTO normalized_astrology (
                     record_hash, parent_id, sunrise, sunset, moonrise, moonset,
                     moon_phase, moon_illumination
                 ) VALUES (
@@ -149,7 +152,7 @@ def insert_hours(source_unique_id, hour):
             execute_values(
                 cur,
                 """
-                INSERT INTO staging_normalized_hours (
+                INSERT INTO normalized_hours (
                     record_hash, parent_id, time_epoch, time,
                     temp_c, temp_f, is_day, condition_text, 
                     condition_icon, condition_code, wind_mph, 
@@ -167,16 +170,12 @@ def insert_hours(source_unique_id, hour):
 
 with psycopg2.connect(db_conn_str) as conn:
     with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute("""
-        select * from restapi_records where id = 1702;
-        """)
+        cur.execute("select * from restapi_records where id = 1;")
         row = cur.fetchone()
-        source_unique_id = row['source_unique_id']
-        raw_record = json.loads(row['raw_record'])
-        day = raw_record["day"]
-        astro = raw_record["astro"]
-        hour = raw_record["hour"]
+        source_id, raw_record = row['source_unique_id'], json.loads(row['raw_record'])
+        day, astro, hour = raw_record["day"], raw_record["astro"], raw_record["hour"]
+        day_astro_count, day_hour_count = 1, len(hour)
         with ThreadPoolExecutor(max_workers=3) as ex:
-            ex.submit(insert_day, source_unique_id, day)
-            ex.submit(insert_astro, source_unique_id, astro)
-            ex.submit(insert_hours, source_unique_id, hour)
+            ex.submit(insert_day, source_id, day, day_astro_count, day_hour_count)
+            ex.submit(insert_astro, source_id, astro)
+            ex.submit(insert_hours, source_id, hour)

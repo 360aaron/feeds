@@ -27,6 +27,8 @@ create table if not exists normalized_days (
     id serial,
     record_hash text,
     created_on timestamp default current_timestamp,
+    children_astro_record_count int default 0,
+    children_hour_record_count int default 0,
     --
     source_unique_id text,
     date date,
