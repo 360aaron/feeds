@@ -1,9 +1,10 @@
+-- create database testdb;
+-- create extension if not exists pgcrypto;
 -- DROPS
 drop table if exists staging_restapi_records;
 drop table if exists restapi_records;
 drop table if exists restapi_records_archive;
 
--- create database testdb;
 
 -- TODO:
 -- * Add Data Services metadata: run id, source system, source format.
@@ -12,7 +13,9 @@ drop table if exists restapi_records_archive;
 -- REST API
 create table if not exists staging_restapi_records (
     source_unique_id text,
-    raw_record_hash text generated always as (md5(raw_record)) stored,
+    raw_record_hash text generated always as (
+        encode(digest(raw_record::text, 'sha256'), 'hex')
+    ) stored,
     raw_record text
 );
 

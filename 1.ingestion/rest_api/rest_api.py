@@ -3,10 +3,11 @@ import psycopg2
 import requests
 
 db_conn_str = "host=localhost port=5432 dbname=testdb user=aaron"
-cities = [
-    "Seattle", "Sacramento", "Portland", "Bozeman",
-    "Chicago", "Nashville", "Atlanta", "Miami", "Boston"
-]
+# cities = [
+#     "Seattle", "Sacramento", "Portland", "Bozeman",
+#     "Chicago", "Nashville", "Atlanta", "Miami", "Boston"
+# ]
+cities = ["Nashville"]
 
 ranges = [
     "2025-06-01&end_dt=2025-07-01",
