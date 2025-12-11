@@ -2,7 +2,9 @@
 
 Our current pattern (publish, wait for ack, mark processed/retries) gives precise “producer got an ack” semantics. The tradeoff is that we own and mantain DB polling, retries, delivery callbacks, and Schema Registry integration.
 
-We can offloads publishing, retries, offsets, and Avro handling to the platform by implementing a connector pattern instead. Where we set up a JDBC Connector via configuration and let Kafka do everything.
+We can offloads publishing, retries, offsets, and Avro handling by implementing a connector pattern instead. Where we set up a JDBC Connector via configuration and let Kafka do everything.
+
+In fact, we can reduce the scope of our dispatcher almost completely by validating schema during normalization and only outboxing fully compliant events. This significantly decreases effort on DQL implementation and coordination.
 
 ## How to run
 
@@ -47,33 +49,13 @@ curl -X POST http://localhost:8083/connectors \
       "key.converter.schema.registry.url": "http://schema-registry:8081",
       "value.converter": "io.confluent.connect.avro.AvroConverter",
       "value.converter.schema.registry.url": "http://schema-registry:8081",
+      "value.converter.auto.register.schemas": "false",
+      "key.converter.auto.register.schemas": "false",
       "poll.interval.ms": "10000"
     }
   }'
 
-curl -X POST http://localhost:8083/connectors \
-  -H "Content-Type: application/json" \
-  --data '{
-    "name": "hours-connector",
-    "config": {
-      "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
-      "tasks.max": "1",
-      "connection.url": "jdbc:postgresql://host.docker.internal:5432/testdb",
-      "connection.user": "aaron",
-      "connection.password": "",
-      "mode": "incrementing",
-      "incrementing.column.name": "id",
-      "table.whitelist": "normalized_hours_sparse_outbox",
-      "topic.prefix": "pg_",
-      "key.converter": "io.confluent.connect.avro.AvroConverter",
-      "key.converter.schema.registry.url": "http://schema-registry:8081",
-      "value.converter": "io.confluent.connect.avro.AvroConverter",
-      "value.converter.schema.registry.url": "http://schema-registry:8081",
-      "poll.interval.ms": "10000"
-    }
-  }'
-
-curl http://localhost:8083/connectors/hours-connector/status | jq
+curl http://localhost:8083/connectors/days-connector/status | jq
 ```
 
 **Consume messages**
@@ -84,13 +66,6 @@ docker compose exec schema-registry bash
 kafka-avro-console-consumer \
   --bootstrap-server broker:29092 \
   --topic pg_normalized_days_sparse_outbox \
-  --from-beginning \
-  --property schema.registry.url=http://schema-registry:8081 \
-  | grep -v '^\['
-
-kafka-avro-console-consumer \
-  --bootstrap-server broker:29092 \
-  --topic pg_normalized_hours_sparse_outbox \
   --from-beginning \
   --property schema.registry.url=http://schema-registry:8081 \
   | grep -v '^\['

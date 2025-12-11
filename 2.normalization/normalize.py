@@ -6,8 +6,9 @@ import psycopg2
 from psycopg2.extras import execute_values, DictCursor
 
 from queries import *
+from validate_normalizations import is_day_valid, is_astro_valid, is_hour_valid
 
-BATCH_SIZE = 100 # TODO: measure on specific workload and tune accordingly
+BATCH_SIZE = 400 # TODO: measure on specific workload and tune accordingly
 
 DB_CONN_STR = "host=localhost port=5432 dbname=testdb user=aaron"
 
@@ -41,13 +42,15 @@ def sha256_hex_from_json(obj) -> str:
     s = json.dumps(obj, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
+
 def batchify(iterable, BATCH_SIZE):
     for i in range(0, len(iterable), BATCH_SIZE):
         yield iterable[i:i + BATCH_SIZE]
 
-def build_day_row(source_unique_id: str, day: dict):
+
+def process_day(source_unique_id: str, day: dict):
     day_hash = sha256_hex_from_json(day)
-    return (
+    day_tuple = (
         day_hash,
         source_unique_id,
         float(day["maxtemp_c"]),
@@ -73,11 +76,12 @@ def build_day_row(source_unique_id: str, day: dict):
         int(day["condition"]["code"]),
         float(day["uv"])
     )
+    return day_tuple, is_day_valid(day_tuple)
 
 
-def build_astro_row(parent_id: str, astro: dict):
+def build_astro(parent_id: str, astro: dict):
     astro_hash = sha256_hex_from_json(astro)
-    return (
+    astro_tuple = (
         astro_hash,
         f"{parent_id}_{1}",
         parent_id,
@@ -88,9 +92,10 @@ def build_astro_row(parent_id: str, astro: dict):
         astro["moon_phase"],
         int(astro["moon_illumination"])
     )
+    return astro_tuple, is_astro_valid(astro_tuple)
 
 
-def build_hour_rows(source_unique_id: str, hours: list):
+def build_hours(source_unique_id: str, hours: list):
     rows = []
     for h in hours:
         hour_hash = sha256_hex_from_json(h)
@@ -171,46 +176,68 @@ def get_restapi_raw_records():
         print(e)
         raise
 
-def normalize_ingested_data():
-    day_conn = astro_conn = hour_conn = None
+
+def normalize_ingested_data(day_conn, astro_conn, hour_conn, raw_records):
     try:
-        restapi_raw_records = get_restapi_raw_records()
-        if not restapi_raw_records:
-            print("No records to normalize")
-            return
-
-        day_conn = psycopg2.connect(DB_CONN_STR)
-        astro_conn = psycopg2.connect(DB_CONN_STR)
-        hour_conn = psycopg2.connect(DB_CONN_STR)
-
         with ThreadPoolExecutor(max_workers=3) as ex:
-            for row_batch in batchify(restapi_raw_records, BATCH_SIZE):
-                day_rows = []
-                astro_rows = []
-                hour_rows = []
+            for row_batch in batchify(raw_records, BATCH_SIZE):
+                day_rows, astro_rows, hour_rows, exceptions = [], [], [], []
                 for row in row_batch:
                     source_id = row["source_unique_id"]
                     raw_record = json.loads(row["raw_record"])
-                    day_rows.append(build_day_row(source_id, raw_record["day"]))
-                    astro_rows.append(build_astro_row(source_id, raw_record["astro"]))
-                    hour_rows.extend(build_hour_rows(source_id, raw_record["hour"]))
-
-                ex.submit(bulk_upsert, day_conn, UPSERT_DAY, day_rows)
-                ex.submit(bulk_upsert, astro_conn, UPSERT_ASTRO, astro_rows)
+                    day, is_valid = process_day(source_id, raw_record["day"])
+                    if is_valid:
+                        day_rows.append(day)
+                    else:
+                        print(f"Invalid day for source_id {source_id}")
+                    astro, is_valid = build_astro(source_id, raw_record["astro"])
+                    if is_valid:
+                        astro_rows.append(astro)
+                    else:
+                        print(f"Invalid astro for source_id {source_id}")
+                    hours = build_hours(source_id, raw_record["hour"])
+                    for hour in hours:
+                        if is_hour_valid(hour):
+                            hour_rows.append(hour)
+                        else:
+                            print(f"Invalid hour for source_id {source_id}")
                 ex.submit(bulk_upsert, hour_conn, UPSERT_HOUR, hour_rows)
+                ex.submit(bulk_upsert, astro_conn, UPSERT_ASTRO, astro_rows)
+                ex.submit(bulk_upsert, day_conn, UPSERT_DAY, day_rows)
+                if exceptions:
+                    print(exceptions)
     except Exception as e:
         print(e)
-    finally:
-        if day_conn:
-            day_conn.close()
-        if astro_conn:
-            astro_conn.close()
-        if hour_conn:
-            hour_conn.close()
+
+
+def establish_connections():
+    day_conn = astro_conn = hour_conn = None
+    day_conn = psycopg2.connect(DB_CONN_STR)
+    astro_conn = psycopg2.connect(DB_CONN_STR)
+    hour_conn = psycopg2.connect(DB_CONN_STR)
+    return day_conn, astro_conn, hour_conn
+
+
+def run():
+    day_conn, astro_conn, hour_conn = establish_connections()
+    
+    raw_records = get_restapi_raw_records()
+    if not raw_records:
+        print("No records to normalize")
+        return
+    
+    normalize_ingested_data(day_conn, astro_conn, hour_conn, raw_records)
+    
+    if day_conn:
+        day_conn.close()
+    if astro_conn:
+        astro_conn.close()
+    if hour_conn:
+        hour_conn.close()
 
 
 if __name__ == '__main__':
-    normalize_ingested_data()
+    run()
     # TODO:
     # - Canonicalize hashing
     # - sparkify
