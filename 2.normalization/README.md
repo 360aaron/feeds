@@ -3,7 +3,11 @@
 It would be reasonable to:
 
 1. Split data onto business relevant models
-2. Diff changes for publishing to avoid rebroacasting whole records
+2. Validate split data: 
+    - Resulting tuples should be what normalized tables expect
+    - Table types and constaints disallow violations
+    - Exceptions should be persisted and published to a DQL
+3. Diff changes for publishing to avoid rebroacasting whole records
 
 ### Proposed pattern
 
