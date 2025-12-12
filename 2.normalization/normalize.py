@@ -49,10 +49,10 @@ def batchify(iterable, BATCH_SIZE):
 
 
 def process_day(source_unique_id: str, day: dict):
-    # Build event dict matching the Avro schema
-    event = {
-        "id": 0,  # placeholder; DB autoincrements real id
+    nr = {
+        "id": 0,                                # placeholder; DB autoincrements real id
         "source_unique_id": source_unique_id,
+        "outboxed_on": None,                    # placeholder; set by DB
         "maxtemp_c": float(day["maxtemp_c"]),
         "maxtemp_f": float(day["maxtemp_f"]),
         "mintemp_c": float(day["mintemp_c"]),
@@ -76,40 +76,35 @@ def process_day(source_unique_id: str, day: dict):
         "condition_code": int(day["condition"]["code"]),
         "uv": float(day["uv"]),
     }
-
-    # Validate event dict against Avro schema
-    if not is_day_valid(event):
+    if not is_day_valid(nr):
         return None, False
-
-    # Hash the validated event and build the DB tuple
-    day_hash = sha256_hex_from_json(event)
+    day_hash = sha256_hex_from_json(nr)
     day_tuple = (
         day_hash,
         source_unique_id,
-        event["maxtemp_c"],
-        event["maxtemp_f"],
-        event["mintemp_c"],
-        event["mintemp_f"],
-        event["avgtemp_c"],
-        event["avgtemp_f"],
-        event["maxwind_mph"],
-        event["maxwind_kph"],
-        event["totalprecip_mm"],
-        event["totalprecip_in"],
-        event["totalsnow_cm"],
-        event["avgvis_km"],
-        event["avgvis_miles"],
-        event["avghumidity"],
-        event["daily_will_it_rain"],
-        event["daily_chance_of_rain"],
-        event["daily_will_it_snow"],
-        event["daily_chance_of_snow"],
-        event["condition_text"],
-        event["condition_icon"],
-        event["condition_code"],
-        event["uv"],
+        nr["maxtemp_c"],
+        nr["maxtemp_f"],
+        nr["mintemp_c"],
+        nr["mintemp_f"],
+        nr["avgtemp_c"],
+        nr["avgtemp_f"],
+        nr["maxwind_mph"],
+        nr["maxwind_kph"],
+        nr["totalprecip_mm"],
+        nr["totalprecip_in"],
+        nr["totalsnow_cm"],
+        nr["avgvis_km"],
+        nr["avgvis_miles"],
+        nr["avghumidity"],
+        nr["daily_will_it_rain"],
+        nr["daily_chance_of_rain"],
+        nr["daily_will_it_snow"],
+        nr["daily_chance_of_snow"],
+        nr["condition_text"],
+        nr["condition_icon"],
+        nr["condition_code"],
+        nr["uv"],
     )
-
     return day_tuple, True
 
 

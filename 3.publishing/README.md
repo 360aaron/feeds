@@ -9,12 +9,24 @@ In fact, we can reduce the scope of our dispatcher almost completely by validati
 ## How to run
 
 ```
-docker compose up -d
-```
+# 1. Start services
+docker compose up -d --build
 
-**Register schema**
+sleep 60
 
-```
+docker compose ps
+
+# 2. Enter tools container
+docker compose exec tools bash
+
+# 3. Create topic
+kafka-topics --bootstrap-server broker:29092 --create --topic days --partitions 1 --replication-factor 1
+
+kafka-topics --bootstrap-server broker:29092 --list
+
+exit
+
+# 4. Register schema (copy day_schema.avsc into container first)
 SCHEMA=$(cat day_schema.avsc \
   | sed 's/"/\\"/g' | tr -d '\n')
 
@@ -26,53 +38,43 @@ curl -X POST \
 curl http://localhost:8081/subjects
 
 curl http://localhost:8081/subjects/days-value/versions/latest
-```
 
-**Create connector(s)**
-
-```
-curl -X POST http://localhost:8083/connectors \
-  -H "Content-Type: application/json" \
-  --data '{
-    "name": "days-connector",
-    "config": {
-      "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
-      "tasks.max": "1",
-      "connection.url": "jdbc:postgresql://host.docker.internal:5432/testdb",
-      "connection.user": "aaron",
-      "connection.password": "",
-      "mode": "incrementing",
-      "incrementing.column.name": "id",
-      "table.whitelist": "normalized_days_sparse_outbox",
-      "topic.prefix": "pg_",
-      "key.converter": "io.confluent.connect.avro.AvroConverter",
-      "key.converter.schema.registry.url": "http://schema-registry:8081",
-      "value.converter": "io.confluent.connect.avro.AvroConverter",
-      "value.converter.schema.registry.url": "http://schema-registry:8081",
-      "value.converter.auto.register.schemas": "false",
-      "key.converter.auto.register.schemas": "false",
-      "poll.interval.ms": "10000"
-    }
-  }'
+# 5. Create connector (from your host)
+curl -X POST -H "Content-Type: application/json" \
+  --data @connector-config.json \
+  http://localhost:8083/connectors
 
 curl http://localhost:8083/connectors/days-connector/status | jq
-```
 
-**Consume messages**
-
-```
+# 6. Consume messages
 docker compose exec schema-registry bash
 
-kafka-avro-console-consumer \
-  --bootstrap-server broker:29092 \
-  --topic pg_normalized_days_sparse_outbox \
-  --from-beginning \
-  --property schema.registry.url=http://schema-registry:8081 \
-  | grep -v '^\['
-```
+kafka-avro-console-consumer --bootstrap-server broker:29092 --topic days \
+  --from-beginning --property schema.registry.url=http://schema-registry:8081
 
-**Clean up**
-
-```
 docker compose down -v
+```
+
+Local cluster
+```
+psql -U <INSERT> -d <INSERT> -c "SHOW config_file;"
+
+# REQUIRED for Debezium
+wal_level = logical
+
+# Also add these if not present:
+max_replication_slots = 10
+max_wal_senders = 10
+
+psql -U aaron -d postgres -c "
+CREATE ROLE replication WITH LOGIN REPLICATION ENCRYPTED PASSWORD 'password';
+ALTER USER replication WITH PASSWORD 'password';
+GRANT CONNECT ON DATABASE postgres TO replication;
+GRANT USAGE ON SCHEMA public TO replication;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO replication;
+"
+
+psql -U aaron -d postgres -c "
+ALTER TABLE public.normalized_days_sparse_outbox REPLICA IDENTITY FULL;
+"
 ```
