@@ -4,12 +4,7 @@
   "namespace": "your.company.weather",
   "fields": [
     { "name": "id", "type": "long" },
-
     { "name": "source_unique_id",   "type": ["null", "string"], "default": null },
-    { "name": "created_on",         "type": ["null", "string"], "default": null },
-
-    { "name": "published",          "type": ["null", "boolean"], "default": null },
-    { "name": "retries",            "type": ["null", "int"],     "default": null },
 
     { "name": "maxtemp_c",          "type": ["null", "double"],  "default": null },
     { "name": "maxtemp_f",          "type": ["null", "double"],  "default": null },

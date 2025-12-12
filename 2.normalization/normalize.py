@@ -6,7 +6,7 @@ import psycopg2
 from psycopg2.extras import execute_values, DictCursor
 
 from queries import *
-from validate_normalizations import is_day_valid, is_astro_valid, is_hour_valid
+from validate_rows import is_day_valid
 
 BATCH_SIZE = 400 # TODO: measure on specific workload and tune accordingly
 
@@ -49,100 +49,69 @@ def batchify(iterable, BATCH_SIZE):
 
 
 def process_day(source_unique_id: str, day: dict):
-    day_hash = sha256_hex_from_json(day)
+    # Build event dict matching the Avro schema
+    event = {
+        "id": 0,  # placeholder; DB autoincrements real id
+        "source_unique_id": source_unique_id,
+        "maxtemp_c": float(day["maxtemp_c"]),
+        "maxtemp_f": float(day["maxtemp_f"]),
+        "mintemp_c": float(day["mintemp_c"]),
+        "mintemp_f": float(day["mintemp_f"]),
+        "avgtemp_c": float(day["avgtemp_c"]),
+        "avgtemp_f": float(day["avgtemp_f"]),
+        "maxwind_mph": float(day["maxwind_mph"]),
+        "maxwind_kph": float(day["maxwind_kph"]),
+        "totalprecip_mm": float(day["totalprecip_mm"]),
+        "totalprecip_in": float(day["totalprecip_in"]),
+        "totalsnow_cm": float(day["totalsnow_cm"]),
+        "avgvis_km": float(day["avgvis_km"]),
+        "avgvis_miles": float(day["avgvis_miles"]),
+        "avghumidity": float(day["avghumidity"]),
+        "daily_will_it_rain": int(day["daily_will_it_rain"]),
+        "daily_chance_of_rain": int(day["daily_chance_of_rain"]),
+        "daily_will_it_snow": int(day["daily_will_it_snow"]),
+        "daily_chance_of_snow": int(day["daily_chance_of_snow"]),
+        "condition_text": day["condition"]["text"],
+        "condition_icon": day["condition"]["icon"],
+        "condition_code": int(day["condition"]["code"]),
+        "uv": float(day["uv"]),
+    }
+
+    # Validate event dict against Avro schema
+    if not is_day_valid(event):
+        return None, False
+
+    # Hash the validated event and build the DB tuple
+    day_hash = sha256_hex_from_json(event)
     day_tuple = (
         day_hash,
         source_unique_id,
-        float(day["maxtemp_c"]),
-        float(day["maxtemp_f"]),
-        float(day["mintemp_c"]),
-        float(day["mintemp_f"]),
-        float(day["avgtemp_c"]),
-        float(day["avgtemp_f"]),
-        float(day["maxwind_mph"]),
-        float(day["maxwind_kph"]),
-        float(day["totalprecip_mm"]),
-        float(day["totalprecip_in"]),
-        float(day["totalsnow_cm"]),
-        float(day["avgvis_km"]),
-        float(day["avgvis_miles"]),
-        float(day["avghumidity"]),
-        int(day["daily_will_it_rain"]),
-        int(day["daily_chance_of_rain"]),
-        int(day["daily_will_it_snow"]),
-        int(day["daily_chance_of_snow"]),
-        day["condition"]["text"],
-        day["condition"]["icon"],
-        int(day["condition"]["code"]),
-        float(day["uv"])
+        event["maxtemp_c"],
+        event["maxtemp_f"],
+        event["mintemp_c"],
+        event["mintemp_f"],
+        event["avgtemp_c"],
+        event["avgtemp_f"],
+        event["maxwind_mph"],
+        event["maxwind_kph"],
+        event["totalprecip_mm"],
+        event["totalprecip_in"],
+        event["totalsnow_cm"],
+        event["avgvis_km"],
+        event["avgvis_miles"],
+        event["avghumidity"],
+        event["daily_will_it_rain"],
+        event["daily_chance_of_rain"],
+        event["daily_will_it_snow"],
+        event["daily_chance_of_snow"],
+        event["condition_text"],
+        event["condition_icon"],
+        event["condition_code"],
+        event["uv"],
     )
-    return day_tuple, is_day_valid(day_tuple)
 
+    return day_tuple, True
 
-def build_astro(parent_id: str, astro: dict):
-    astro_hash = sha256_hex_from_json(astro)
-    astro_tuple = (
-        astro_hash,
-        f"{parent_id}_{1}",
-        parent_id,
-        astro["sunrise"],
-        astro["sunset"],
-        astro["moonrise"],
-        astro["moonset"],
-        astro["moon_phase"],
-        int(astro["moon_illumination"])
-    )
-    return astro_tuple, is_astro_valid(astro_tuple)
-
-
-def build_hours(source_unique_id: str, hours: list):
-    rows = []
-    for h in hours:
-        hour_hash = sha256_hex_from_json(h)
-        rows.append(
-            (
-                hour_hash,
-                f"{source_unique_id}_{hour_hash}",
-                source_unique_id,
-                int(h["time_epoch"]),
-                h["time"],
-                float(h["temp_c"]),
-                float(h["temp_f"]),
-                int(h["is_day"]),
-                h["condition"]["text"],
-                h["condition"]["icon"],
-                int(h["condition"]["code"]),
-                float(h["wind_mph"]),
-                float(h["wind_kph"]),
-                int(h["wind_degree"]),
-                h["wind_dir"],
-                float(h["pressure_mb"]),
-                float(h["pressure_in"]),
-                float(h["precip_mm"]),
-                float(h["precip_in"]),
-                float(h["snow_cm"]),
-                int(h["humidity"]),
-                int(h["cloud"]),
-                float(h["feelslike_c"]),
-                float(h["feelslike_f"]),
-                float(h["windchill_c"]),
-                float(h["windchill_f"]),
-                float(h["heatindex_c"]),
-                float(h["heatindex_f"]),
-                float(h["dewpoint_c"]),
-                float(h["dewpoint_f"]),
-                int(h["will_it_rain"]),
-                int(h["chance_of_rain"]),
-                int(h["will_it_snow"]),
-                int(h["chance_of_snow"]),
-                float(h["vis_km"]),
-                float(h["vis_miles"]),
-                float(h["gust_mph"]),
-                float(h["gust_kph"]),
-                float(h["uv"])
-            )
-        )
-    return rows
 
 def bulk_upsert(conn, sql: str, rows, page_size: int = 100):
     if not rows:
@@ -177,11 +146,11 @@ def get_restapi_raw_records():
         raise
 
 
-def normalize_ingested_data(day_conn, astro_conn, hour_conn, raw_records):
+def normalize_ingested_data(day_conn, raw_records):
     try:
         with ThreadPoolExecutor(max_workers=3) as ex:
             for row_batch in batchify(raw_records, BATCH_SIZE):
-                day_rows, astro_rows, hour_rows, exceptions = [], [], [], []
+                day_rows, exceptions = [], []
                 for row in row_batch:
                     source_id = row["source_unique_id"]
                     raw_record = json.loads(row["raw_record"])
@@ -190,19 +159,6 @@ def normalize_ingested_data(day_conn, astro_conn, hour_conn, raw_records):
                         day_rows.append(day)
                     else:
                         print(f"Invalid day for source_id {source_id}")
-                    astro, is_valid = build_astro(source_id, raw_record["astro"])
-                    if is_valid:
-                        astro_rows.append(astro)
-                    else:
-                        print(f"Invalid astro for source_id {source_id}")
-                    hours = build_hours(source_id, raw_record["hour"])
-                    for hour in hours:
-                        if is_hour_valid(hour):
-                            hour_rows.append(hour)
-                        else:
-                            print(f"Invalid hour for source_id {source_id}")
-                ex.submit(bulk_upsert, hour_conn, UPSERT_HOUR, hour_rows)
-                ex.submit(bulk_upsert, astro_conn, UPSERT_ASTRO, astro_rows)
                 ex.submit(bulk_upsert, day_conn, UPSERT_DAY, day_rows)
                 if exceptions:
                     print(exceptions)
@@ -211,33 +167,25 @@ def normalize_ingested_data(day_conn, astro_conn, hour_conn, raw_records):
 
 
 def establish_connections():
-    day_conn = astro_conn = hour_conn = None
-    day_conn = psycopg2.connect(DB_CONN_STR)
-    astro_conn = psycopg2.connect(DB_CONN_STR)
-    hour_conn = psycopg2.connect(DB_CONN_STR)
-    return day_conn, astro_conn, hour_conn
+    return psycopg2.connect(DB_CONN_STR)
 
 
-def run():
-    day_conn, astro_conn, hour_conn = establish_connections()
+def orchestrate():
+    day_conn = establish_connections()
     
     raw_records = get_restapi_raw_records()
     if not raw_records:
         print("No records to normalize")
         return
     
-    normalize_ingested_data(day_conn, astro_conn, hour_conn, raw_records)
+    normalize_ingested_data(day_conn, raw_records)
     
     if day_conn:
         day_conn.close()
-    if astro_conn:
-        astro_conn.close()
-    if hour_conn:
-        hour_conn.close()
 
 
 if __name__ == '__main__':
-    run()
+    orchestrate()
     # TODO:
     # - Canonicalize hashing
     # - sparkify
